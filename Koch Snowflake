@@ -1,0 +1,128 @@
+
+
+import rhinoscriptsyntax as rs
+import Rhino.Geometry as RG
+import math
+import ghpythonlib.treehelpers as th
+
+
+
+
+def Repeat(polygon):
+    #Starting
+    Lines=[]
+    Lines=rs.ExplodeCurves(polygon)
+    
+    b=Lines
+    d=[]
+    for i in Lines:
+        division=rs.DivideCurve(i,3)
+        d.append(division)
+    #Division
+    Divisions=th.list_to_tree(d)
+    #Getting mid points
+    mid=[]
+    for i in range(len(d)):
+        middle=(d[i][1]+d[i][2])/2
+        mid.append(middle)
+    Middles=th.list_to_tree(mid)
+    #Distance between points
+    dis=[]
+    for i in range(len(d)):
+        distance=RG.Point3d.DistanceTo(d[i][1],d[i][2])
+        dis.append(distance)
+    Distances=th.list_to_tree(dis)
+    #Hight of equilatreal triangle
+    h=[]
+    for i in range(len(dis)):
+        height=dis[i]*math.sqrt(3)/2
+        h.append(height)
+    Heights=th.list_to_tree(h)
+    #guid to curve
+    f=[]
+    for i in range(len(b)):
+        trans1=rs.coercecurve(b[i])
+        f.append(trans1)
+    #Direction
+    vec=[]
+    FramesAt=range(1,2000,2)#stop at any large number
+    NewFrames=[]
+    for i in FramesAt:
+        new=i*.5
+        NewFrames.append(new)
+    
+    for i in range(len(f)):
+        PerpFrame=RG.Curve.PerpendicularFrameAt(f[i],NewFrames[i])
+        vector=PerpFrame[1].XAxis #[1]>because it has boolean output
+        vec.append(vector)
+    #Head points
+    HEAD=[]
+    for i in range(len(mid)):
+        move=rs.MoveObject(mid[i],-1*h[i]*vec[i])
+        headPoints=rs.coerce3dpoint(move)
+        HEAD.append(headPoints)
+    #Drawing the 4 lines
+    line1=[]
+    line2=[]
+    line3=[]
+    line4=[]
+    for i in range(len(d)):
+        lin1=[]
+        lin2=[]
+        lin3=[]
+        lin4=[]
+        for j in range(len(d[i])):
+            lines1=RG.Line(d[i][0],d[i][1])
+            lines2=RG.Line(d[i][1],HEAD[i])
+            lines3=RG.Line(HEAD[i],d[i][2])
+            lines4=RG.Line(d[i][2],d[i][3])
+            lin1.append(lines1)
+            lin2.append(lines2)
+            lin3.append(lines3)
+            lin4.append(lines4)
+        line1.append(lin1)
+        line2.append(lin2)
+        line3.append(lin3)
+        line4.append(lin4)
+    Lines1=th.list_to_tree(line1)
+    Lines2=th.list_to_tree(line2)
+    Lines3=th.list_to_tree(line3)
+    Lines4=th.list_to_tree(line4)
+    Final=[line1,line2,line3,line4]
+    finaltree=th.list_to_tree(Final)
+    #Flatten the output
+    Flatten_output=[]
+    for i in range(len(Final)):
+        for j in range(len(Final[i])):
+            for k in range(len(Final[i][j])):
+                s=Final[i][j][k]
+                Flatten_output.append(s)
+    Flatten_List=Flatten_output
+    #Remove duplicate lines
+    #I want to remove 3 lines out of each 4
+    midpoints=[]
+    for i in Flatten_List:
+        midpoint=RG.Line.PointAt(i,.5)
+        midpoints.append(midpoint)
+    
+    for i in range(4*len(b)):
+        if (midpoints[i]==midpoints[i+1]):
+            del Flatten_List[i+1]
+        if (midpoints[i]==midpoints[i+1]):
+            del Flatten_List[i+1]
+        if (midpoints[i]==midpoints[i+1]):
+            del Flatten_List[i+1]
+        if (midpoints[i]==midpoints[i+1]):
+            del Flatten_List[i+1]
+    #join outpout curves for the next iteration
+    LinesToCurves=[]
+    for i in Flatten_List:
+        LineToCurve=RG.Line.ToNurbsCurve(i)
+        LinesToCurves.append(LineToCurve)
+    FinalPolygon=rs.JoinCurves(LinesToCurves)
+    return FinalPolygon
+#Iterations
+FinalIteration=Repeat(polygon)
+for i in range(iterations-1):
+    FinalIteration=Repeat(FinalIteration)
+
